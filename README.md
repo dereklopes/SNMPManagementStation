@@ -1,5 +1,6 @@
 # SNMP Management Station
 An SNMP-enabled device management station written in C utilizing the net-snmp library.
+
 Class project for CS158B, taught by Alberto Prieto in Fall 2017 at San Jose State University.
 
 ## Features:
