@@ -13,7 +13,7 @@ Class project for CS158B, taught by Alberto Prieto in Fall 2017 at San Jose Stat
 - net-snmp library installed (Debian/Ubuntu: `apt-get install libsnmp-dev`)
 
 ## TODO:
-[ ] Get input (time interval between samples, number of samples, agent IP, community name)
+[X] Get input (time interval between samples, number of samples, agent IP, community name)
 
 [ ] Decide on MIB-II objects to use to find the required information (see features)
 
