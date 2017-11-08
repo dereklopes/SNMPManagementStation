@@ -9,10 +9,8 @@
 
 CC=gcc
 
-OBJS1=snmpdemoapp.o
-OBJS2=example-demon.o nstAgentSubagentObject.o
-OBJS3=asyncapp.o
-TARGETS=example-demon snmpdemoapp asyncapp
+OBJS1=snmpmanager.o
+TARGETS=snmpmanager
 
 CFLAGS=-I. `net-snmp-config --cflags`
 BUILDLIBS=`net-snmp-config --libs`
@@ -23,18 +21,9 @@ DLFLAGS=-fPIC -shared
 
 all: $(TARGETS)
 
-snmpdemoapp: $(OBJS1)
-	$(CC) -o snmpdemoapp.exe $(OBJS1) $(BUILDLIBS)
-
-asyncapp: $(OBJS3)
-	$(CC) -o asyncapp $(OBJS3) $(BUILDLIBS)
-
-example-demon: $(OBJS2)
-	$(CC) -o example-demon $(OBJS2)  $(BUILDAGENTLIBS)
+snmpmanager: $(OBJS1)
+	$(CC) -o snmpmanager.exe $(OBJS1) $(BUILDLIBS)
 
 clean:
-	rm $(OBJS2) $(OBJS2) $(TARGETS)
+	rm $(OBJS1) $(TARGETS).exe
 
-nstAgentPluginObject.so: nstAgentPluginObject.c Makefile
-	$(CC) $(CFLAGS) $(DLFLAGS) -c -o nstAgentPluginObject.o nstAgentPluginObject.c
-	$(CC) $(CFLAGS) $(DLFLAGS) -o nstAgentPluginObject.so nstAgentPluginObject.o

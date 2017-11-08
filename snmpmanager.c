@@ -2,13 +2,6 @@
 #include <net-snmp/net-snmp-includes.h>
 #include <string.h>
 
-/* change the word "define" to "undef" to try the (insecure) SNMPv1 version */
-#undef DEMO_USE_SNMP_VERSION_3
-
-#ifdef DEMO_USE_SNMP_VERSION_3
-const char *our_v3_passphrase = "The Net-SNMP Demo Password";
-#endif
-
 int main(int argc, char ** argv)
 {
     netsnmp_session session, *ss;
@@ -35,41 +28,6 @@ int main(int argc, char ** argv)
 
     /* set up the authentication parameters for talking to the server */
 
-#ifdef DEMO_USE_SNMP_VERSION_3
-
-    /* Use SNMPv3 to talk to the experimental server */
-
-    /* set the SNMP version number */
-    session.version=SNMP_VERSION_3;
-        
-    /* set the SNMPv3 user name */
-    session.securityName = strdup("MD5User");
-    session.securityNameLen = strlen(session.securityName);
-
-    /* set the security level to authenticated, but not encrypted */
-    session.securityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
-
-    /* set the authentication method to MD5 */
-    session.securityAuthProto = usmHMACMD5AuthProtocol;
-    session.securityAuthProtoLen = sizeof(usmHMACMD5AuthProtocol)/sizeof(oid);
-    session.securityAuthKeyLen = USM_AUTH_KU_LEN;
-
-    /* set the authentication key to a MD5 hashed version of our
-       passphrase "The Net-SNMP Demo Password" (which must be at least 8
-       characters long) */
-    if (generate_Ku(session.securityAuthProto,
-                    session.securityAuthProtoLen,
-                    (u_char *) our_v3_passphrase, strlen(our_v3_passphrase),
-                    session.securityAuthKey,
-                    &session.securityAuthKeyLen) != SNMPERR_SUCCESS) {
-        snmp_perror(argv[0]);
-        snmp_log(LOG_ERR,
-                 "Error generating Ku from authentication pass phrase. \n");
-        exit(1);
-    }
-    
-#else /* we'll use the insecure (but simplier) SNMPv1 */
-
     /* set the SNMP version number */
     session.version = SNMP_VERSION_1;
 
@@ -77,13 +35,11 @@ int main(int argc, char ** argv)
     session.community = "local";
     session.community_len = strlen(session.community);
 
-#endif /* SNMPv1 */
-
     /*
      * Open the session
      */
     SOCK_STARTUP;
-    ss = snmp_open(&session);                     /* establish the session */
+    ss = snmp_open(&session);
 
     if (!ss) {
       snmp_sess_perror("ack", &session);
@@ -133,12 +89,12 @@ int main(int argc, char ** argv)
       /* manipuate the information ourselves */
       for(vars = response->variables; vars; vars = vars->next_variable) {
         if (vars->type == ASN_OCTET_STR) {
-	  char *sp = (char *)malloc(1 + vars->val_len);
-	  memcpy(sp, vars->val.string, vars->val_len);
-	  sp[vars->val_len] = '\0';
+          char *sp = (char *)malloc(1 + vars->val_len);
+          memcpy(sp, vars->val.string, vars->val_len);
+          sp[vars->val_len] = '\0';
           printf("value #%d is a string: %s\n", count++, sp);
-	  free(sp);
-	}
+          free(sp);
+	      }
         else
           printf("value #%d is NOT a string! Ack!\n", count++);
       }
@@ -155,7 +111,6 @@ int main(int argc, char ** argv)
                 session.peername);
       else
         snmp_sess_perror("snmpdemoapp", ss);
-
     }
 
     /*
