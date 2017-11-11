@@ -6,7 +6,16 @@
 
 #define DEBUG false
 
-netsnmp_pdu *snmp_walk(netsnmp_session* open_session, char* oid);
+const char *system_oid = "1.3.6.1.2.1.1";
+const char *sysDescr_oid = "1.3.6.1.2.1.1.1.0";
+const char *ifDescr_oid = "1.3.6.1.2.1.2.2.1.2";
+const char *ifAddr_oid = "1.3.6.1.2.1.4.20.1.1";
+const char *ifIn_oid = "1.3.6.1.2.1.2.2.1.10";
+const char *ifOut_oid = "1.3.6.1.2.1.2.2.1.16";
+const char *ifNet_oid = "1.3.6.1.2.1.4.22.1.3";
+const char *sysUpTime_oid = "1.3.6.1.2.1.1.3.0";
+
+netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid);
 
 int main(int argc, char **argv) {
     // Get input for sample time interval, # of samples, agent ip, community name
@@ -106,9 +115,9 @@ int main(int argc, char **argv) {
     return (0);
 }
 
-netsnmp_pdu *snmp_walk(netsnmp_session* open_session, char* oid) {
+netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid) {
     // Create the pdu for the request
-    netsnmp_pdu* pdu = snmp_pdu_create(SNMP_MSG_GET), *response;
+    netsnmp_pdu *pdu = snmp_pdu_create(SNMP_MSG_GET), *response;
     oid anOID[MAX_OID_LEN];
     size_t anOID_len = MAX_OID_LEN;
     if (!snmp_parse_oid(oid, anOID, &anOID_len)) {
