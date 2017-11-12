@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     session.peername = strdup(agent_ip);
 
     // set the SNMP version number
-    session.version = SNMP_VERSION_1;
+    session.version = SNMP_VERSION_2c;
 
     // set the SNMPv1 community name used for authentication
     session.community = community;
@@ -82,22 +82,12 @@ int main(int argc, char **argv) {
     snmp_add_null_var(pdu, anOID, anOID_len);
 
     // Send the Request out.
-    status = snmp_synch_response(ss, pdu, &response);
+    response = snmp_walk(ss, ifDescr_oid);
 
-    // Process the response
-    if (status == STAT_SUCCESS && response->errstat == SNMP_ERR_NOERROR) {
-        // SUCCESS: Print the result variable
-        for (vars = response->variables; vars; vars = vars->next_variable) {
-            print_variable(vars->name, vars->name_length, vars);
-        }
-    } else {
-        // FAILURE: Print what went wrong
-        if (status == STAT_SUCCESS)
-            fprintf(stderr, "Error in packet\nReason: %s\n", snmp_errstring(response->errstat));
-        else if (status == STAT_TIMEOUT)
-            fprintf(stderr, "Timeout: No response from %s.\n", session.peername);
-        else
-            snmp_sess_perror("snmpmanager", ss);
+    // Print the result variable
+    printf("Interfaces: \n");
+    for (vars = response->variables; vars; vars = vars->next_variable) {
+        print_variable(vars->name, vars->name_length, vars);
     }
 
     /*
@@ -131,7 +121,7 @@ netsnmp_pdu* snmp_walk(netsnmp_session *open_session, char *first_oid) {
     int status = netsnmp_query_walk(pdu->variables, open_session);
 
     // Process the response
-    if (status == STAT_SUCCESS && pdu->errstat == SNMP_ERR_NOERROR) {
+    if (status == STAT_SUCCESS && pdu->variables) {
         // SUCCESS: Return the result pdu
         return pdu;
     } else {
