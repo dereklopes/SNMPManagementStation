@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <net-snmp/types.h>
 
 #define DEBUG true
 
@@ -16,6 +17,7 @@ const char *ifNet_oid = "1.3.6.1.2.1.4.22.1.3";
 const char *sysUpTime_oid = "1.3.6.1.2.1.1.3.0";
 
 netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid);
+char **getVariablesAsStr(netsnmp_pdu *pdu, int *ifcount);
 
 int main(int argc, char **argv) {
     // Get input for sample time interval, # of samples, agent ip, community name
@@ -24,6 +26,8 @@ int main(int argc, char **argv) {
     if (DEBUG) {
         agent_ip = "127.0.0.1";
         community = "local";
+        sample_interval = 1;
+        num_samples = 3;
     } else {
         printf("Enter a time interval: ");
         scanf("%d", &sample_interval);
@@ -36,74 +40,66 @@ int main(int argc, char **argv) {
     };
 
     netsnmp_session session, *ss;
-    netsnmp_pdu *pdu;
-    netsnmp_pdu *response;
 
     oid anOID[MAX_OID_LEN];
     size_t anOID_len;
-
-    netsnmp_variable_list *vars;
-    int status;
-    int count = 1;
 
     // Initialize the SNMP library
     init_snmp("snmpmanager");
 
     // Initialize a "session" that defines who we're going to talk to
-    snmp_sess_init(&session);                   /* set up defaults */
+    snmp_sess_init(&session);
     session.peername = strdup(agent_ip);
 
-    // set the SNMP version number
+    // set SNMP information
     session.version = SNMP_VERSION_2c;
-
-    // set the SNMPv1 community name used for authentication
     session.community = community;
     session.community_len = strlen(session.community);
 
     // Open the session
     SOCK_STARTUP;
     ss = snmp_open(&session);
-
     if (!ss) {
         snmp_sess_perror("ack", &session);
         SOCK_CLEANUP;
         exit(1);
     }
 
-    // Create the PDU for the data for our request.
-    pdu = snmp_pdu_create(SNMP_MSG_GET);
-    anOID_len = MAX_OID_LEN;
-    if (!snmp_parse_oid(".1.3.6.1.2.1.2.1.0", anOID, &anOID_len)) {
-        snmp_perror(".1.3.6.1.2.1.1.1.0");
-        SOCK_CLEANUP;
-        exit(1);
+    // Get Interfaces
+    netsnmp_pdu *ifNamesPDU = snmp_walk(ss, ifDescr_oid);
+    netsnmp_pdu *ifAddressesPDU = snmp_walk(ss, ifAddr_oid);
+    int if_count;
+    char **ifNames = getVariablesAsStr(ifNamesPDU, &if_count);
+    char **ifAddresses = getVariablesAsStr(ifAddressesPDU, &if_count);
+    printf("|------------------------------------------------------------------------------\n");
+    printf("| Interfaces:\n");
+    for (int i = 0; i < if_count; i++) {
+        printf("| %d | %s | %s\n", i, ifNames[i], ifAddresses[i]);
     }
+    printf("|------------------------------------------------------------------------------\n");
 
-    snmp_add_null_var(pdu, anOID, anOID_len);
-
-    // Send the Request out.
-    response = snmp_walk(ss, ifDescr_oid);
-
-    // Print the result variable
-    printf("Interfaces: \n");
-    for (vars = response->variables; vars; vars = vars->next_variable) {
-        print_variable(vars->name, vars->name_length, vars);
+    // Get IP Neighbors
+    netsnmp_pdu *ipNeighborsPDU = snmp_walk(ss, ifNet_oid);
+    int neighbors_count;
+    char **neighbors = getVariablesAsStr(ipNeighborsPDU, &neighbors_count);
+    printf("|------------------------------------------------------------------------------\n");
+    printf("| Neighbors:\n");
+    for (int i = 0; i < neighbors_count; i++) {
+        printf("| %d | %s\n", i, neighbors[i]);
     }
+    printf("|------------------------------------------------------------------------------\n");
 
-    /*
-     * Clean up:
-     *  1) free the response.
-     *  2) close the session.
-     */
-    if (response)
-        snmp_free_pdu(response);
+    // Get traffic
+
+    // Clean up and close the session
+    snmp_free_pdu(ifNamesPDU);
+    snmp_free_pdu(ifAddressesPDU);
     snmp_close(ss);
-
     SOCK_CLEANUP;
     return (0);
 }
 
-netsnmp_pdu* snmp_walk(netsnmp_session *open_session, char *first_oid) {
+netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *first_oid) {
     // Create the pdu for the request
     netsnmp_pdu *pdu;
     oid anOID[MAX_OID_LEN];
@@ -136,3 +132,24 @@ netsnmp_pdu* snmp_walk(netsnmp_session *open_session, char *first_oid) {
     }
 }
 
+char **getVariablesAsStr(netsnmp_pdu *pdu, int *count) {
+    *count = 0;
+    netsnmp_variable_list *vars;
+    for (vars = pdu->variables; vars; vars = vars->next_variable) {
+        (*count)++;
+    }
+    char **values = (char**) malloc(sizeof(char*) * *count);
+    vars = pdu->variables;
+    for (int i = 0; i < *count; i++) {
+        if (vars->type == ASN_IPADDRESS) {
+            char *ip = (char*) malloc(16);
+            u_char *oct = vars->val.bitstring;
+            snprintf(ip, 16, "%d.%d.%d.%d", oct[0], oct[1], oct[2], oct[3]);
+            values[i] = ip;
+        } else {
+            values[i] = vars->val.string;
+            vars = vars->next_variable;
+        }
+    }
+    return values;
+}
