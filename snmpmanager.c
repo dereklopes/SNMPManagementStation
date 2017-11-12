@@ -1,9 +1,9 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
-#include <string.h>
+#include <net-snmp/types.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <net-snmp/types.h>
+#include <string.h>
 
 #define DEBUG true
 
@@ -16,12 +16,13 @@ const char *ifOut_oid = "1.3.6.1.2.1.2.2.1.16";
 const char *ifNet_oid = "1.3.6.1.2.1.4.22.1.3";
 const char *sysUpTime_oid = "1.3.6.1.2.1.1.3.0";
 
-netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid);
-char **getVariablesAsStr(netsnmp_pdu *pdu, int *ifcount);
+netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *first_oid);
+char **getVariablesAsStr(netsnmp_pdu *pdu, int *count);
+int *getTrafficFromPDU(netsnmp_pdu *pdu, int if_count);
 
 int main(int argc, char **argv) {
     // Get input for sample time interval, # of samples, agent ip, community name
-    int sample_interval, num_samples;
+    unsigned int sample_interval, num_samples;
     char *agent_ip, *community;
     if (DEBUG) {
         agent_ip = "127.0.0.1";
@@ -40,9 +41,6 @@ int main(int argc, char **argv) {
     };
 
     netsnmp_session session, *ss;
-
-    oid anOID[MAX_OID_LEN];
-    size_t anOID_len;
 
     // Initialize the SNMP library
     init_snmp("snmpmanager");
@@ -90,10 +88,25 @@ int main(int argc, char **argv) {
     printf("|------------------------------------------------------------------------------\n");
 
     // Get traffic
+    int **in_traffic = (int**) malloc(if_count * num_samples * sizeof(in_traffic));
+    int **out_traffic = (int**) malloc(if_count * num_samples * sizeof(out_traffic));
+    printf("Gathering traffic information for %d seconds...\n", sample_interval * num_samples);
+    for (int i = 0; i < num_samples; i++) {
+        in_traffic[i] = getTrafficFromPDU(snmp_walk(ss, ifIn_oid), if_count);
+        out_traffic[i] = getTrafficFromPDU(snmp_walk(ss, ifOut_oid), if_count);
+        if (DEBUG)
+            printf("In: %d | Out: %d\n", *in_traffic[i], *out_traffic[i]);
+        sleep(sample_interval);
+    }
+
 
     // Clean up and close the session
     snmp_free_pdu(ifNamesPDU);
     snmp_free_pdu(ifAddressesPDU);
+    snmp_free_pdu(ipNeighborsPDU);
+    free(ifNames);
+    free(ifAddresses);
+    free(neighbors);
     snmp_close(ss);
     SOCK_CLEANUP;
     return (0);
@@ -146,10 +159,31 @@ char **getVariablesAsStr(netsnmp_pdu *pdu, int *count) {
             u_char *oct = vars->val.bitstring;
             snprintf(ip, 16, "%d.%d.%d.%d", oct[0], oct[1], oct[2], oct[3]);
             values[i] = ip;
+        } else if (vars->type == ASN_COUNTER) {
+            long* value = vars->val.integer;
+            sprintf(values[i], "%ld", *value);
+            printf("%s\n", values[i]);
+            fflush(stdout);
         } else {
             values[i] = vars->val.string;
             vars = vars->next_variable;
         }
     }
+    return values;
+}
+
+int *getTrafficFromPDU(netsnmp_pdu *pdu, int if_count) {
+    int count = 0;
+    netsnmp_variable_list *vars;
+    int *values = (int*) malloc(if_count * sizeof(values));
+
+    for (vars = pdu->variables; vars; vars = vars->next_variable) {
+        if (vars->type == ASN_COUNTER) {
+            values[count++] = (int) *vars->val.integer;
+        } else {
+            printf("PDU is not a counter\n");
+        }
+    }
+
     return values;
 }
