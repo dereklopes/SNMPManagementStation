@@ -15,14 +15,14 @@ Class project for CS158B, taught by Alberto Prieto in Fall 2017 at San Jose Stat
 ## TODO:
 [X] Get input (time interval between samples, number of samples, agent IP, community name)
 
-[ ] Decide on MIB-II objects to use to find the required information (see features)
+[X] Decide on MIB-II objects to use to find the required information (see features)
 
-[ ] Use libsnmp to get device interfaces
+[X] Use libsnmp to get device interfaces
 
-[ ] Use libsnmp to get device IP neighbors
+[X] Use libsnmp to get device IP neighbors
 
-[ ] Use libsnmp to get traffic on each interface
+[X] Use libsnmp to get traffic on each interface
 
-[ ] Compute traffic from traffic data
+[X] Compute traffic from traffic data
 
-[ ] Format output to be user-friendly
+[X] Format output to be user-friendly
