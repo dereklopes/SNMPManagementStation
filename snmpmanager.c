@@ -5,29 +5,27 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define DEBUG true
+#define DEBUG false
 
-const char *system_oid = "1.3.6.1.2.1.1";
-const char *sysDescr_oid = "1.3.6.1.2.1.1.1.0";
 const char *ifDescr_oid = "1.3.6.1.2.1.2.2.1.2";
 const char *ifAddr_oid = "1.3.6.1.2.1.4.20.1.1";
 const char *ifIn_oid = "1.3.6.1.2.1.2.2.1.10";
 const char *ifOut_oid = "1.3.6.1.2.1.2.2.1.16";
 const char *ifNet_oid = "1.3.6.1.2.1.4.22.1.3";
-const char *sysUpTime_oid = "1.3.6.1.2.1.1.3.0";
 
 netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *first_oid);
 char **getVariablesAsStr(netsnmp_pdu *pdu, int *count);
 int *getTrafficFromPDU(netsnmp_pdu *pdu, int if_count);
+void printTraffic(int *traffic, int num_samples, int sample_interval);
 
 int main(int argc, char **argv) {
     // Get input for sample time interval, # of samples, agent ip, community name
     unsigned int sample_interval, num_samples;
-    char *agent_ip, *community;
+    char *agent_ip = malloc(15 * sizeof(char)), *community = malloc(50 * sizeof(char));
     if (DEBUG) {
         agent_ip = "127.0.0.1";
         community = "local";
-        sample_interval = 1;
+        sample_interval = 3;
         num_samples = 3;
     } else {
         printf("Enter a time interval: ");
@@ -90,15 +88,27 @@ int main(int argc, char **argv) {
     // Get traffic
     int **in_traffic = (int**) malloc(if_count * num_samples * sizeof(in_traffic));
     int **out_traffic = (int**) malloc(if_count * num_samples * sizeof(out_traffic));
-    printf("Gathering traffic information for %d seconds...\n", sample_interval * num_samples);
+    printf("\nGathering traffic information for %d seconds...\n", sample_interval * num_samples);
     for (int i = 0; i < num_samples; i++) {
         in_traffic[i] = getTrafficFromPDU(snmp_walk(ss, ifIn_oid), if_count);
         out_traffic[i] = getTrafficFromPDU(snmp_walk(ss, ifOut_oid), if_count);
-        if (DEBUG)
-            printf("In: %d | Out: %d\n", *in_traffic[i], *out_traffic[i]);
         sleep(sample_interval);
     }
-
+    for (int i = 0; i < if_count; i++) {
+        printf("\n~~~ Interface: %s ~~~\n", ifNames[i]);
+        printf("In:\n");
+        int *traffic = (int*) malloc(num_samples * sizeof(int));
+        for (int j = 0; j < num_samples; j++) {
+            traffic[j] = in_traffic[j][i];
+        }
+        printTraffic(traffic, num_samples, sample_interval);
+        printf("Out:\n");
+        traffic = (int*) malloc(num_samples * sizeof(int));
+        for (int j = 0; j < num_samples; j++) {
+            traffic[j] = out_traffic[j][i];
+        }
+        printTraffic(traffic, num_samples, sample_interval);
+    }
 
     // Clean up and close the session
     snmp_free_pdu(ifNamesPDU);
@@ -186,4 +196,10 @@ int *getTrafficFromPDU(netsnmp_pdu *pdu, int if_count) {
     }
 
     return values;
+}
+
+void printTraffic(int *traffic, int num_samples, int sample_interval) {
+    for (int i = 1; i < num_samples; i++) {
+        printf("%d seconds: %d bytes\n", i * sample_interval,(traffic[i] - traffic[i-1]) / sample_interval);
+    }
 }
