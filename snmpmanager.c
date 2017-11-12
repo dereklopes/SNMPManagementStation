@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define DEBUG false
+#define DEBUG true
 
 const char *system_oid = "1.3.6.1.2.1.1";
 const char *sysDescr_oid = "1.3.6.1.2.1.1.1.0";
@@ -87,11 +87,9 @@ int main(int argc, char **argv) {
     // Process the response
     if (status == STAT_SUCCESS && response->errstat == SNMP_ERR_NOERROR) {
         // SUCCESS: Print the result variable
-        netsnmp_vardata num_of_if;
         for (vars = response->variables; vars; vars = vars->next_variable) {
-            num_of_if = vars->val;
+            print_variable(vars->name, vars->name_length, vars);
         }
-        printf("Number of interfaces: %ld\n", *(num_of_if.integer));
     } else {
         // FAILURE: Print what went wrong
         if (status == STAT_SUCCESS)
@@ -115,13 +113,14 @@ int main(int argc, char **argv) {
     return (0);
 }
 
-netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid) {
+netsnmp_pdu* snmp_walk(netsnmp_session *open_session, char *first_oid) {
     // Create the pdu for the request
-    netsnmp_pdu *pdu = snmp_pdu_create(SNMP_MSG_GET), *response;
+    netsnmp_pdu *pdu;
     oid anOID[MAX_OID_LEN];
     size_t anOID_len = MAX_OID_LEN;
-    if (!snmp_parse_oid(oid, anOID, &anOID_len)) {
-        snmp_perror(oid);
+    pdu = snmp_pdu_create(SNMP_MSG_GET);
+    if (!snmp_parse_oid(first_oid, anOID, &anOID_len)) {
+        snmp_perror(first_oid);
         SOCK_CLEANUP;
         exit(1);
     }
@@ -132,17 +131,18 @@ netsnmp_pdu *snmp_walk(netsnmp_session *open_session, char *oid) {
     int status = netsnmp_query_walk(pdu->variables, open_session);
 
     // Process the response
-    if (status == STAT_SUCCESS && response->errstat == SNMP_ERR_NOERROR) {
+    if (status == STAT_SUCCESS && pdu->errstat == SNMP_ERR_NOERROR) {
         // SUCCESS: Return the result pdu
-        return response;
+        return pdu;
     } else {
         // FAILURE: Print what went wrong
         if (status == STAT_SUCCESS)
-            fprintf(stderr, "Error in packet\nReason: %s\n", snmp_errstring(response->errstat));
+            fprintf(stderr, "Error in packet\nReason: %s\n", snmp_errstring(pdu->errstat));
         else if (status == STAT_TIMEOUT)
             fprintf(stderr, "Timeout: No response from %s.\n", open_session->peername);
         else
             snmp_sess_perror("snmpmanager", open_session);
-        return null;
+        return NULL;
     }
 }
+
