@@ -1,3 +1,8 @@
+/**
+ * Assignment #2: SNMP Management Station
+ * Derek Lopes, Anna Chang
+ */
+
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/types.h>
